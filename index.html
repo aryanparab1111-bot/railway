@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Automatic Railway Gate Simulator</title>
+<style>
+:root{--bg:#0a1226;--panel:#111c38;--panel2:#0d1730;--line:#243357;--txt:#e6ecff;--mut:#8fa0c8;--red:#ff4d5e;--grn:#2ee59d;--amb:#ffb938;--blu:#4da3ff;--r:14px}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 20% -10%,#14234a,var(--bg) 55%);color:var(--txt);font:15px/1.5 Bahnschrift,"DIN Alternate","Segoe UI",system-ui,sans-serif;min-height:100vh}
+.wrap{max-width:1280px;margin:0 auto;padding:16px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px}
+h1{margin:0;font-size:clamp(1.2rem,3.2vw,1.9rem);letter-spacing:.04em}
+.sub{color:var(--mut);margin:2px 0 0}
+.badge{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:99px;border:1px solid var(--grn);color:var(--grn);font-weight:700;font-size:.8rem;background:#2ee59d14}
+.badge.off{border-color:var(--amb);color:var(--amb);background:#ffb93814}
+.led{width:11px;height:11px;border-radius:50%;background:#2a3558;display:inline-block;flex:none;transition:.25s}
+.led.g{background:var(--grn);box-shadow:0 0 10px var(--grn)}.led.r{background:var(--red);box-shadow:0 0 10px var(--red)}.led.a{background:var(--amb);box-shadow:0 0 10px var(--amb)}.led.b{background:var(--blu);box-shadow:0 0 10px var(--blu)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button,select{font:inherit;color:var(--txt);background:#1a2a55;border:1px solid var(--line);border-radius:10px;padding:8px 14px;cursor:pointer;transition:.15s}
+button:hover:not(:disabled),select:hover{border-color:var(--blu);transform:translateY(-1px);box-shadow:0 4px 14px #0006}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.pri{background:#0f7a55;border-color:var(--grn)}button.dng{background:#5c1f2c;border-color:var(--red)}
+:focus-visible{outline:2px solid var(--blu);outline-offset:2px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:0 6px 22px #0005}
+.card h2{margin:0 0 10px;font-size:1rem;color:#c9d6ff}
+.alert{display:none;margin-bottom:12px;padding:10px 14px;border-radius:10px;border:1px solid var(--amb);background:#ffb93818;color:var(--amb);font-weight:600}
+.alert.on{display:block}.alert.red{border-color:var(--red);background:#ff4d5e18;color:var(--red)}
+#scene{width:100%;height:auto;display:block;border-radius:10px;background:#0b1730}
+.strip{position:relative;height:22px;margin-top:10px;border-radius:99px;overflow:hidden;background:linear-gradient(90deg,#1a2a55 0 5%,#ffb93833 5% 42%,#ff4d5e44 42% 58%,#2ee59d22 58%)}
+.strip i{position:absolute;top:3px;width:16px;height:16px;border-radius:50%;background:var(--blu);box-shadow:0 0 10px var(--blu);transform:translateX(-50%);left:0}
+.legend{display:flex;justify-content:space-between;color:var(--mut);font-size:.78rem;margin-top:4px}
+.grid{display:grid;gap:14px;margin-top:14px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.span2{grid-column:1/-1}
+.gates{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.gate{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.gate svg{width:100%;max-width:180px;height:auto}
+.gate svg path,.gate svg circle.sym{fill:#16244a;stroke:var(--blu);stroke-width:2.5}
+.gate svg line{stroke:#3a4a78;stroke-width:3;transition:.2s}.gate svg line.on{stroke:var(--grn);filter:drop-shadow(0 0 4px var(--grn))}
+.tg{min-width:64px}.tg.on{background:#0f7a55;border-color:var(--grn)}
+.expr{font-family:Consolas,monospace;color:var(--amb);margin:6px 0 2px;font-size:.9rem}
+.cards{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.st{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px}
+.st small{color:var(--mut);display:block}.st b{display:flex;gap:8px;align-items:center;margin-top:4px;font-size:1.05rem}
+.sim{color:var(--mut);font-size:.72rem}
+.ctl{display:grid;gap:10px}.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+label{display:flex;gap:8px;align-items:center;cursor:pointer}
+#log{list-style:none;margin:0;padding:0;max-height:260px;overflow:auto;font-family:Consolas,monospace;font-size:.82rem}
+#log li{padding:4px 0;border-bottom:1px solid #1c2a4e}#log time{color:var(--mut);margin-right:8px}
+.tts{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+table{width:100%;border-collapse:collapse;text-align:center;font-family:Consolas,monospace}
+th,td{padding:4px;border:1px solid var(--line)}tr.hl td{background:#4da3ff33;color:#fff;font-weight:700}
+.learn p{margin:6px 0;color:#c9d6ff}.note{color:var(--mut);font-size:.82rem}
+.bl .la,.bl .lb{animation:bk .9s steps(1) infinite}.bl .lb{animation-delay:.45s}
+@keyframes bk{0%{opacity:1}50%{opacity:.15}}
+.frozen .la,.frozen .lb{animation-play-state:paused}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}.bl .la,.bl .lb{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap" id="root">
+<header>
+  <div>
+    <h1>AUTOMATIC RAILWAY GATE SIMULATOR</h1>
+    <p class="sub">Digital Logic Gates-Based Railway Safety System</p>
+  </div>
+  <div class="btns">
+    <span class="badge" id="badge"><span class="led g"></span><span id="badgeTxt">SYSTEM ONLINE</span></span>
+    <button class="pri" id="bStart" aria-label="Start simulation">Start Simulation</button>
+    <button id="bPause" aria-label="Pause or resume simulation">Pause</button>
+    <button class="dng" id="bReset" aria-label="Reset simulation">Reset</button>
+  </div>
+</header>
+<div class="alert" id="alert" role="alert"></div>
+
+<section class="card" aria-label="Railway crossing">
+<svg id="scene" viewBox="0 0 1000 340" role="img" aria-label="Animated railway level crossing">
+  <rect width="1000" height="340" fill="#0e1b36"/>
+  <rect x="50" y="0" width="370" height="340" fill="#ffb938" opacity=".06"/>
+  <rect x="420" y="0" width="160" height="340" fill="#2b3145"/>
+  <rect x="420" y="0" width="160" height="340" fill="#ff4d5e" opacity=".07"/>
+  <g stroke="#e8eefc" stroke-width="3" stroke-dasharray="22 16" opacity=".7"><line x1="500" y1="0" x2="500" y2="196"/><line x1="500" y1="264" x2="500" y2="340"/></g>
+  <line x1="50" y1="0" x2="50" y2="340" stroke="#4da3ff" stroke-dasharray="6 6" opacity=".6"/>
+  <text x="56" y="18" fill="#4da3ff" font-size="13">Approach sensor</text>
+  <text x="426" y="18" fill="#ff8a96" font-size="13">Crossing zone</text>
+  <!-- Track: ballast, sleepers, rails -->
+  <rect x="0" y="198" width="1000" height="64" fill="#2a2620"/>
+  <g id="sleepers" stroke="#6b5a42" stroke-width="7"></g>
+  <line x1="0" y1="212" x2="1000" y2="212" stroke="#b9c2d6" stroke-width="4"/>
+  <line x1="0" y1="248" x2="1000" y2="248" stroke="#b9c2d6" stroke-width="4"/>
+  <rect x="420" y="198" width="160" height="64" fill="#3a3f52" opacity=".85"/>
+  <line x1="420" y1="212" x2="580" y2="212" stroke="#b9c2d6" stroke-width="4"/><line x1="420" y1="248" x2="580" y2="248" stroke="#b9c2d6" stroke-width="4"/>
+  <!-- Train: tail at x=0, locomotive at front (x=300) -->
+  <g id="train">
+    <g fill="#3b6fd0" stroke="#0a1226" stroke-width="2"><rect x="0" y="212" width="70" height="36" rx="5"/><rect x="76" y="212" width="70" height="36" rx="5"/><rect x="152" y="212" width="70" height="36" rx="5"/></g>
+    <g fill="#9fc3ff" opacity=".7"><rect x="8" y="222" width="54" height="16" rx="3"/><rect x="84" y="222" width="54" height="16" rx="3"/><rect x="160" y="222" width="54" height="16" rx="3"/></g>
+    <rect x="228" y="210" width="72" height="40" rx="9" fill="#e5484d" stroke="#0a1226" stroke-width="2"/>
+    <rect x="270" y="219" width="22" height="22" rx="4" fill="#ffe9a8"/><circle cx="299" cy="230" r="4" fill="#fff4b0"/>
+  </g>
+  <!-- Left barrier (pivot 420,186) and right barrier (pivot 580,276) -->
+  <g id="barL"><rect x="0" y="-5" width="80" height="10" fill="#fff" stroke="#c0152c"/><g fill="#d6182f"><rect x="14" y="-5" width="14" height="10"/><rect x="42" y="-5" width="14" height="10"/><rect x="70" y="-5" width="10" height="10"/></g></g>
+  <g id="barR"><rect x="-80" y="-5" width="80" height="10" fill="#fff" stroke="#c0152c"/><g fill="#d6182f"><rect x="-28" y="-5" width="14" height="10"/><rect x="-56" y="-5" width="14" height="10"/><rect x="-80" y="-5" width="10" height="10"/></g></g>
+  <circle cx="420" cy="186" r="8" fill="#555c75"/><circle cx="580" cy="276" r="8" fill="#555c75"/>
+  <!-- Signal poles with blinking red lamps -->
+  <g id="sig">
+    <rect x="394" y="120" width="8" height="66" fill="#6b748f"/><rect x="378" y="108" width="40" height="22" rx="6" fill="#1b2340" stroke="#6b748f"/>
+    <circle class="la" cx="389" cy="119" r="7" fill="#ff4d5e" id="lampL1"/><circle class="lb" cx="407" cy="119" r="7" fill="#ff4d5e" id="lampL2"/>
+    <rect x="598" y="276" width="8" height="66" fill="#6b748f"/><rect x="582" y="288" width="40" height="22" rx="6" fill="#1b2340" stroke="#6b748f"/>
+    <circle class="la" cx="593" cy="299" r="7" fill="#ff4d5e" id="lampR1"/><circle class="lb" cx="611" cy="299" r="7" fill="#ff4d5e" id="lampR2"/>
+  </g>
+  <text id="sceneTag" x="990" y="332" text-anchor="end" fill="#8fa0c8" font-size="12">Simulated train position</text>
+</svg>
+<div class="strip" aria-hidden="true"><i id="mark"></i></div>
+<div class="legend"><span>Approach &rarr; sensor</span><span>Crossing zone</span><span>Cleared</span></div>
+</section>
+
+<div class="grid">
+<section class="card span2" aria-label="Logic gate panel">
+  <h2>Digital Logic Gate Control Panel</h2>
+  <div class="gates" id="gates"></div>
+  <p class="note">A (Train Detected) follows the simulated sensor; click it to force detection for testing. B (System Active) mirrors the System Active toggle. All values are simulated.</p>
+</section>
+
+<section class="card" aria-label="Sensor and system status">
+  <h2>Sensor &amp; System Status <span class="sim">(all values simulated)</span></h2>
+  <div class="cards" id="cards"></div>
+</section>
+
+<section class="card" aria-label="Simulation controls">
+  <h2>Simulation Controls</h2>
+  <div class="ctl">
+    <div class="row"><label for="spd">Train speed</label>
+      <select id="spd"><option value="slow">Slow</option><option value="normal" selected>Normal</option><option value="fast">Fast</option></select></div>
+    <label><input type="checkbox" id="tSys" checked> System Active</label>
+    <label><input type="checkbox" id="tMan"> Manual Train Detection (test)</label>
+    <label><input type="checkbox" id="tStep"> Step-by-step mode</label>
+    <div class="row"><button id="bNext" disabled>Next Step</button><span class="note" id="stepNote">Step mode off.</span></div>
+  </div>
+</section>
+
+<section class="card" aria-label="Event log">
+  <h2>Event Log</h2>
+  <ul id="log" aria-live="polite"></ul>
+  <p><button id="bClear">Clear Log</button></p>
+</section>
+
+<section class="card" aria-label="Truth tables">
+  <h2>Logic Truth Table</h2>
+  <div class="tts">
+    <div><b>AND</b><table id="tAND"><tr><th>A</th><th>B</th><th>Q</th></tr></table></div>
+    <div><b>OR</b><table id="tOR"><tr><th>A</th><th>B</th><th>Q</th></tr></table></div>
+    <div><b>NOT</b><table id="tNOT"><tr><th>A</th><th>Q</th></tr></table></div>
+  </div>
+</section>
+
+<section class="card learn span2" aria-label="Education">
+  <h2>How Digital Logic Gates Work</h2>
+  <p><b>AND:</b> output is 1 only when both inputs are 1. <b>OR:</b> output is 1 when at least one input is 1. <b>NOT:</b> output is the inverse of its input.</p>
+  <p>In this crossing, <b>Warning = Train Detected AND System Active</b>: lights start only when a train is sensed and the system is on. <b>NOT Train Detected</b> shows the track is clear, which allows the barrier to rise after a short delay. <b>Train Detected OR System Active</b> shows whether any input is present at all.</p>
+  <p>Sequence: detect &rarr; warning lights &rarr; barrier lowers &rarr; train passes &rarr; train clears &rarr; warning continues briefly &rarr; barrier rises &rarr; lights off. If the train reaches the stop line before the barrier is fully down, it waits.</p>
+  <p class="note">Educational simulation only. These simplified gates are not a certified railway safety system.</p>
+</section>
+</div>
+</div>
+
+<script>
+"use strict";
+/* ---------- Constants (scene units: 0-100 = scene width %) ---------- */
+const SENSOR = 5, ZS = 42, ZE = 58, LEN = 30, END = 100 + LEN + 2;
+const SPEEDS = { slow: 5, normal: 8, fast: 12 };   // units per second
+const WARN_DELAY = 1.5, CLEAR_HOLD = 1.5, BAR_TIME = 1.2; // seconds of simulated time
+const $ = id => document.getElementById(id);
+
+/* ---------- State ---------- */
+const S = {};
+function initState() {
+  Object.assign(S, {
+    paused: false, waiting: false, stepMode: false, speed: "normal",
+    B: true, manual: false,
+    trainActive: false, front: 0,
+    latch: false, warnAge: 0, holdT: 0,   // warning latch, time since warning began, clear-hold timer
+    d: 0,                                  // barrier lowered fraction 0 (open) .. 1 (closed)
+    prev: { latch: false, target: 0, closed: false, open: true },
+    ev: {}, A: false, and: false, or: false, not: true
+  });
+}
+initState();
+
+/* ---------- Event log (only on state transitions) ---------- */
+function addLogEvent(msg, milestone) {
+  const li = document.createElement("li");
+  li.innerHTML = "<time>" + new Date().toLocaleTimeString() + "</time>" + msg;
+  const log = $("log"); log.prepend(li);
+  while (log.children.length > 150) log.lastChild.remove();
+  if (milestone && S.stepMode) { S.waiting = true; }   // step mode: halt at each safety milestone
+}
+function once(key, msg, milestone) { if (!S.ev[key]) { S.ev[key] = true; addLogEvent(msg, milestone); } }
+
+/* ---------- Controls ---------- */
+function startSimulation() {
+  if (S.paused) return resumeSimulation();
+  if (S.trainActive) return;
+  S.ev = {}; S.trainActive = true; S.front = 0; S.waiting = false;
+  addLogEvent("Simulation started");
+}
+function pauseSimulation() { if (!S.paused) { S.paused = true; addLogEvent("Simulation paused"); } }
+function resumeSimulation() { if (S.paused) { S.paused = false; addLogEvent("Simulation resumed"); } }
+function resetSimulation() {
+  initState(); $("log").innerHTML = "";
+  $("spd").value = "normal"; $("tSys").checked = true; $("tMan").checked = false; $("tStep").checked = false;
+  addLogEvent("Simulation reset"); render();
+}
+
+/* ---------- Logic ---------- */
+function updateSensors() {
+  const tail = S.front - LEN;
+  const trainSensed = S.trainActive && S.front >= SENSOR && tail < ZE;  // approach zone through crossing
+  S.A = trainSensed || S.manual;
+}
+function evaluateLogicGates() {
+  S.and = S.A && S.B; S.or = S.A || S.B; S.not = !S.A;
+}
+function updateWarningLights(dt) {
+  if (S.and) { S.latch = true; S.holdT = 0; }                 // warning = A AND B
+  else if (S.latch) {
+    if (!S.B) S.latch = false;                                // system inactive: lights drop out (fault)
+    else { S.holdT += dt; if (S.holdT >= CLEAR_HOLD) S.latch = false; } // brief hold after clear
+  }
+  S.warnAge = S.latch ? S.warnAge + dt : 0;
+}
+function controlBarrier(dt) {
+  const target = S.latch && S.warnAge >= WARN_DELAY ? 1 : 0;  // lower only after the warning period
+  const step = dt / BAR_TIME;
+  S.d = target ? Math.min(1, S.d + step) : Math.max(0, S.d - step);
+  return target;
+}
+function moveTrain(dt) {
+  if (!S.trainActive) return;
+  const holding = S.B && S.front >= ZS - 2 && S.front < ZS && S.d < 1;
+  if (holding) { S.front = ZS - 2; once("hold", "Train holding at stop line until barrier is down"); return; }
+  S.front += SPEEDS[S.speed] * dt;
+}
+function logTransitions(target) {
+  const tail = S.front - LEN, p = S.prev;
+  if (S.trainActive && S.front >= SENSOR && S.A) once("det", "Train detected in approach zone", true);
+  if (S.latch && !p.latch) addLogEvent("Warning lights activated");
+  if (!S.latch && p.latch) addLogEvent("Warning lights off");
+  if (target && !p.target) addLogEvent("Barrier lowering");
+  const closed = S.d >= 1, open = S.d <= 0;
+  if (closed && !p.closed) addLogEvent("Barrier fully lowered", true);
+  if (open && p.open === false) addLogEvent("Barrier raised", true);
+  if (S.trainActive && S.front >= ZS) once("enter", S.d < 1 ? "Train entering crossing with barrier NOT down (fault)" : "Train entering crossing", true);
+  if (S.trainActive && tail >= ZE) once("clear", "Train cleared crossing", true);
+  if (S.trainActive && !S.B && S.A) once("fault", "FAULT: system inactive, crossing unprotected");
+  S.prev = { latch: S.latch, target, closed, open };
+}
+function tick(dt) {
+  if (S.paused || S.waiting) return;
+  moveTrain(dt); updateSensors(); evaluateLogicGates(); updateWarningLights(dt);
+  const target = controlBarrier(dt); logTransitions(target);
+  if (S.trainActive && S.front >= END) { S.trainActive = false; once("done", "Train left the area"); }
+}
+
+/* ---------- Rendering ---------- */
+const gateDefs = {
+  AND: '<path d="M30 8h28a27 27 0 0 1 0 54H30z"/>',
+  OR: '<path d="M24 8c20 0 44 4 62 27-18 23-42 27-62 27 12-18 12-36 0-54z"/>',
+  NOT: '<path d="M30 8l44 27-44 27z"/><circle class="sym" cx="79" cy="35" r="5"/>'
+};
+function buildGates() {
+  $("gates").innerHTML = ["AND", "OR", "NOT"].map(t => {
+    const two = t !== "NOT", outX = t === "NOT" ? 84 : t === "AND" ? 85 : 86;
+    return `<div class="gate"><b>${t} Gate</b>
+      <svg viewBox="0 0 140 70" aria-label="${t} gate symbol">${gateDefs[t]}
+      ${two ? `<line data-w="${t}a" x1="2" y1="22" x2="28" y2="22"/><line data-w="${t}b" x1="2" y1="48" x2="28" y2="48"/>` : `<line data-w="${t}a" x1="2" y1="35" x2="30" y2="35"/>`}
+      <line data-w="${t}q" x1="${outX}" y1="35" x2="138" y2="35"/></svg>
+      <div class="row" style="justify-content:center">
+        <button class="tg" data-in="A" aria-label="Toggle input A for ${t} gate">A: 0</button>
+        ${two ? `<button class="tg" data-in="B" aria-label="Toggle input B for ${t} gate">B: 0</button>` : ""}
+        <span class="led" data-q="${t}"></span><b data-qv="${t}">Q=0</b></div>
+      <div class="expr">${t === "AND" ? "Q = A · B" : t === "OR" ? "Q = A + B" : "Q = A'"}</div>
+      <div class="sim" data-d="${t}"></div></div>`;
+  }).join("");
+  $("gates").addEventListener("click", e => {
+    const b = e.target.closest("button[data-in]"); if (!b) return;
+    if (b.dataset.in === "A") { S.manual = !S.manual; $("tMan").checked = S.manual; }
+    else { S.B = !S.B; $("tSys").checked = S.B; }
+    addLogEvent("Input " + b.dataset.in + " toggled by user"); render();
+  });
+  [["AND", [[0,0],[0,1],[1,0],[1,1]], (a,b) => a&b], ["OR", [[0,0],[0,1],[1,0],[1,1]], (a,b) => a|b], ["NOT", [[0],[1]], a => +!a]]
+    .forEach(([n, rows, f]) => rows.forEach(r => {
+      $("t" + n).insertAdjacentHTML("beforeend", `<tr data-r="${r.join("")}">${r.map(v => "<td>" + v + "</td>").join("")}<td>${f(...r)}</td></tr>`);
+    }));
+}
+function buildStrips() {
+  const s = $("sleepers"); let h = "";
+  for (let x = 6; x < 1000; x += 26) h += `<line x1="${x}" y1="200" x2="${x}" y2="260"/>`;
+  s.innerHTML = h;
+}
+function card(label, val, cls, extra) {
+  return `<div class="st"><small>${label}</small><b><span class="led ${cls}"></span>${val}</b><span class="sim">${extra || "simulated"}</span></div>`;
+}
+function render() {
+  const A = +S.A, B = +S.B, tail = S.front - LEN;
+  const inCross = S.trainActive && S.front >= ZS && tail < ZE;
+  // Scene
+  $("train").setAttribute("transform", `translate(${(S.front - LEN) * 10},0)`);
+  $("train").style.display = S.trainActive ? "" : "none";
+  const ang = 78 * (1 - S.d);
+  $("barL").setAttribute("transform", `translate(420,186) rotate(${-ang})`);
+  $("barR").setAttribute("transform", `translate(580,276) rotate(${-ang})`);
+  $("sig").setAttribute("class", S.latch ? "bl" : "");
+  ["lampL1","lampL2","lampR1","lampR2"].forEach(i => $(i).style.opacity = S.latch ? "" : ".25");
+  $("root").classList.toggle("frozen", S.paused || S.waiting);
+  $("mark").style.left = Math.max(0, Math.min(100, S.trainActive ? S.front : 0)) + "%";
+  // Gates
+  const out = { AND: +S.and, OR: +S.or, NOT: +S.not };
+  document.querySelectorAll(".gate").forEach(g => {
+    const t = g.querySelector("[data-q]").dataset.q;
+    g.querySelectorAll("button[data-in]").forEach(b => { const v = b.dataset.in === "A" ? A : B; b.textContent = b.dataset.in + ": " + v; b.classList.toggle("on", !!v); });
+    g.querySelectorAll("line[data-w]").forEach(l => {
+      const w = l.dataset.w.slice(-1), v = w === "a" ? A : w === "b" ? B : out[t]; l.classList.toggle("on", !!v);
+    });
+    g.querySelector("[data-q]").className = "led " + (out[t] ? "g" : "");
+    g.querySelector("[data-qv]").textContent = "Q=" + out[t];
+    g.querySelector("[data-d]").textContent = t === "AND" ? (out.AND ? "Warning enabled" : "Warning not enabled") : t === "OR" ? (out.OR ? "Input present" : "No inputs") : (out.NOT ? "Track clear" : "Track occupied");
+  });
+  document.querySelectorAll("#tAND tr[data-r],#tOR tr[data-r]").forEach(r => r.classList.toggle("hl", r.dataset.r === "" + A + B));
+  document.querySelectorAll("#tNOT tr[data-r]").forEach(r => r.classList.toggle("hl", r.dataset.r === "" + A));
+  // Status cards
+  const bar = S.d >= 1 ? "CLOSED" : S.d <= 0 ? "OPEN" : "MOVING";
+  const dist = S.trainActive ? (S.front < ZS ? Math.round((ZS - S.front) * 4) + " m" : tail < ZE ? "IN CROSSING" : "PASSED") : "NO TRAIN";
+  let cross, cc;
+  if (!S.B && (S.A || inCross)) { cross = "FAULT"; cc = "r"; }
+  else if (!S.B) { cross = "INACTIVE"; cc = "a"; }
+  else if (inCross) { cross = "OCCUPIED"; cc = "r"; }
+  else if (S.latch || S.A) { cross = "WARNING"; cc = "a"; }
+  else if (S.d > 0) { cross = "WARNING"; cc = "a"; }
+  else { cross = "SAFE"; cc = "g"; }
+  $("cards").innerHTML =
+    card("Train Detection Sensor", S.A ? "DETECTED" : "CLEAR", S.A ? "r" : "g") +
+    card("System Active", S.B ? "ACTIVE" : "INACTIVE", S.B ? "g" : "a") +
+    card("Barrier Position", bar, S.d >= 1 ? "r" : S.d <= 0 ? "g" : "a") +
+    card("Warning Lights", S.latch ? "BLINKING" : "OFF", S.latch ? "r" : "") +
+    card("Crossing Status", cross, cc, cross === "SAFE" ? "simulated, not a real safety claim" : "simulated") +
+    card("Train Distance", dist, "b");
+  // Header + alert
+  const al = $("alert");
+  if (!S.B) { al.className = "alert on red"; al.textContent = "System inactive: the crossing is NOT protected" + (S.A ? ". Sensor fault: train detected but no warning issued." : "."); }
+  else if (S.waiting) { al.className = "alert on"; al.textContent = "Step mode: milestone reached. Press Next Step to continue."; }
+  else al.className = "alert";
+  $("badgeTxt").textContent = S.B ? (S.paused ? "SYSTEM PAUSED" : "SYSTEM ONLINE") : "SYSTEM FAULT";
+  $("badge").className = "badge" + (S.B && !S.paused ? "" : " off");
+  $("badge").firstChild.className = "led " + (S.B ? (S.paused ? "a" : "g") : "r");
+  $("bPause").textContent = S.paused ? "Resume" : "Pause";
+  $("bStart").disabled = S.trainActive && !S.paused;
+  $("bNext").disabled = !S.waiting;
+  $("stepNote").textContent = S.stepMode ? (S.waiting ? "Waiting for Next Step." : "Runs to the next milestone.") : "Step mode off.";
+}
+
+/* ---------- Wiring ---------- */
+$("bStart").onclick = () => { startSimulation(); render(); };
+$("bPause").onclick = () => { S.paused ? resumeSimulation() : pauseSimulation(); render(); };
+$("bReset").onclick = resetSimulation;
+$("bClear").onclick = () => { $("log").innerHTML = ""; };
+$("bNext").onclick = () => { S.waiting = false; render(); };
+$("spd").onchange = e => { S.speed = e.target.value; addLogEvent("Train speed set to " + S.speed); };
+$("tSys").onchange = e => { S.B = e.target.checked; addLogEvent("System " + (S.B ? "activated" : "deactivated (fault state)")); render(); };
+$("tMan").onchange = e => { S.manual = e.target.checked; addLogEvent("Manual detection " + (S.manual ? "ON" : "OFF")); render(); };
+$("tStep").onchange = e => { S.stepMode = e.target.checked; if (!S.stepMode) S.waiting = false; render(); };
+
+buildGates(); buildStrips(); render();
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  tick(dt); render(); requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
